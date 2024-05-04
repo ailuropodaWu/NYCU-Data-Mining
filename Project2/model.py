@@ -1,4 +1,5 @@
 import torch
+import os
 from argparse import ArgumentParser
 from torch import nn
 from transformers.models.bert import BertModel
@@ -28,6 +29,7 @@ class BERTClassifier(nn.Module):
 class TrainingAgent():
     def __init__(self):
         train_data_path = "./dataset/train.json"
+        test_data_path = "./dataset/test.json"
         parser = ArgumentParser()
         parser.add_argument("--epochs", nargs='?', type=int, default=20)
         parser.add_argument("--batch_size", nargs='?', type=int, default=8)
@@ -44,12 +46,18 @@ class TrainingAgent():
         self.dropout_ratio = args.dropout_ratio
         self.max_length = args.max_length
         self.model_root = args.model_root
+        self.model_save_root = os.path.join('model', self.model_root)
+        self.model_name = f"bert_classifier_epoch_{self.epochs}_batch_{self.batch_size}_lr_{self.lr}"
+        if not os.path.exists(self.model_save_root):
+            os.mkdir(self.model_save_root)
         self.device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
         
         self.model = BERTClassifier(self.model_root, 5, self.dropout_ratio).to(self.device)
-        train_data, val_data = read_data(train_data_path, self.model_root, self.max_length)
+        train_data, val_data = read_data(train_data_path, self.model_root, self.max_length, mode="train")
+        test_data = read_data(test_data_path, self.model_root, self.max_length, mode="test")
         self.train_dataloader = DataLoader(train_data, batch_size=self.batch_size, shuffle=True)
         self.val_dataloader = DataLoader(val_data, batch_size=self.batch_size)
+        self.test_dataloader = DataLoader(test_data, batch_size=1)
         
         self.optimizer = AdamW(self.model.parameters(), lr=self.lr)
         total_steps = len(self.train_dataloader) * self.epochs
@@ -62,8 +70,27 @@ class TrainingAgent():
             accuracy, report = self._evaluate()
             print(f"Validation Accuracy: {accuracy:.4f}")
             print(report)
-        torch.save(self.model.state_dict(), f"./model/bert_classifier_epoch_{self.epochs}_batch_{self.batch_size}_lr_{self.lr}.pth")
+        torch.save(self.model.state_dict(), os.path.join(self.model_save_root, self.model_name))
     
+    def inference(self):
+        predictions = self._inference()
+        with open(os.path.join('predictions', f"{self.model_name}.csv"), 'w') as f:
+            f.write('index,rating\n')
+            for i, pred in enumerate(predictions):
+                f.write('index_'+str(i)+','+str(int(pred))+'\n')
+            
+    def _inference(self):
+        model = self.model.load_state_dict(torch.load(os.path.join(self.model_save_root, f"{self.model_name}.pth")))
+        model.eval()
+        predictions = []
+        for batch in self.test_dataloader:
+            input_ids = batch['input_ids'].to(self.device)
+            attention_mask = batch['attention_mask'].to(self.device)
+            outputs = model(input_ids=input_ids, attention_mask=attention_mask)
+            _, preds = torch.max(outputs, dim=1)
+            predictions.extend(preds.cpu().tolist())
+        return predictions
+            
     def _train(self):
         self.model.train()
         for batch in tqdm(self.train_dataloader):
@@ -95,3 +122,4 @@ class TrainingAgent():
 if __name__ == "__main__":
     agent = TrainingAgent()
     agent.train()
+    agent.inference()
