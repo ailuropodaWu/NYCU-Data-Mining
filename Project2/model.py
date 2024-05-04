@@ -77,7 +77,7 @@ class TrainingAgent():
         with open(os.path.join('predictions', f"{self.model_name}.csv"), 'w') as f:
             f.write('index,rating\n')
             for i, pred in enumerate(predictions):
-                f.write(f'index_{i},{pred}\n')
+                f.write(f'index_{i},{pred+1}\n')
             
     def _inference(self):
         self.model.load_state_dict(torch.load(os.path.join(self.model_save_root, f"{self.model_name}.pth")))
