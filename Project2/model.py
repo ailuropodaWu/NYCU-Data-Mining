@@ -72,7 +72,7 @@ class TrainingAgent():
             print(report)
         torch.save(self.model.state_dict(), os.path.join(self.model_save_root, f"{self.model_name}.pth"))
     
-    def inference(self):
+    def inference(self):  
         predictions = self._inference()
         with open(os.path.join('predictions', f"{self.model_name}.csv"), 'w') as f:
             f.write('index,rating\n')
@@ -80,13 +80,13 @@ class TrainingAgent():
                 f.write(f'index_{i},{pred}\n')
             
     def _inference(self):
-        model = self.model.load_state_dict(torch.load(os.path.join(self.model_save_root, f"{self.model_name}.pth")))
-        model.eval()
+        self.model.load_state_dict(torch.load(os.path.join(self.model_save_root, f"{self.model_name}.pth")))
+        self.model.eval()
         predictions = []
-        for batch in self.test_dataloader:
+        for batch in tqdm(self.test_dataloader):
             input_ids = batch['input_ids'].to(self.device)
             attention_mask = batch['attention_mask'].to(self.device)
-            outputs = model(input_ids=input_ids, attention_mask=attention_mask)
+            outputs = self.model(input_ids=input_ids, attention_mask=attention_mask)
             _, preds = torch.max(outputs, dim=1)
             predictions.extend(preds.cpu().tolist())
         return predictions
