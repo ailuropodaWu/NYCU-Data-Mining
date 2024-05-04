@@ -33,7 +33,7 @@ def read_data(data_path, tokenizer_root='bert-base-uncased', max_length=1024, mo
     tokenizer = BertTokenizer.from_pretrained(tokenizer_root)
     text = []
     for i, row in df.iterrows():
-        t = f"Title: {row['title']}. Content: {row['text']}."
+        t = f"[CLS] Title: {row['title']} Comment: {row['text']}"
         text.append(t.replace("<br />", " "))
     helpful = df['helpful_vote'].to_list()
     verified = df['verified_purchase'].to_list()

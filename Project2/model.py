@@ -2,7 +2,7 @@ import torch
 import os
 from argparse import ArgumentParser
 from torch import nn
-from transformers.models.bert import BertModel
+from transformers.models.bert import BertModel, BertForSequenceClassification
 from torch.optim import AdamW
 from torch.optim.lr_scheduler import LinearLR
 from torch.utils.data import DataLoader
@@ -15,6 +15,7 @@ class BERTClassifier(nn.Module):
     def __init__(self, bert_model_name, num_classes, dropout_ratio):
         super(BERTClassifier, self).__init__()
         self.bert = BertModel.from_pretrained(bert_model_name)
+        # self.bert = BertForSequenceClassification.from_pretrained(bert_model_name)
         self.dropout = nn.Dropout(dropout_ratio)
         self.fc = nn.Linear(self.bert.config.hidden_size, num_classes)
 
