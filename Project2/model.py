@@ -70,14 +70,14 @@ class TrainingAgent():
             accuracy, report = self._evaluate()
             print(f"Validation Accuracy: {accuracy:.4f}")
             print(report)
-        torch.save(self.model.state_dict(), os.path.join(self.model_save_root, self.model_name))
+        torch.save(self.model.state_dict(), os.path.join(self.model_save_root, f"{self.model_name}.pth"))
     
     def inference(self):
         predictions = self._inference()
         with open(os.path.join('predictions', f"{self.model_name}.csv"), 'w') as f:
             f.write('index,rating\n')
             for i, pred in enumerate(predictions):
-                f.write('index_'+str(i)+','+str(int(pred))+'\n')
+                f.write(f'index_{i},{pred}\n')
             
     def _inference(self):
         model = self.model.load_state_dict(torch.load(os.path.join(self.model_save_root, f"{self.model_name}.pth")))
