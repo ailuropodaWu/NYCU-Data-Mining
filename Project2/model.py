@@ -59,7 +59,7 @@ class TrainingAgent():
         self.train_dataloader = DataLoader(train_data, batch_size=self.batch_size, shuffle=True)
         self.val_dataloader = DataLoader(val_data, batch_size=self.batch_size)
         self.test_dataloader = DataLoader(test_data, batch_size=1)
-        self.loss_weight = train_data.get_weight()
+        self.loss_weight = train_data.get_weight().to(self.device)
         
         self.optimizer = AdamW(self.model.parameters(), lr=self.lr)
         total_steps = len(self.train_dataloader) * self.epochs
