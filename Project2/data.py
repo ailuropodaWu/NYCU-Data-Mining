@@ -1,6 +1,7 @@
 from torch.utils.data import Dataset
 import pandas as pd
 import torch
+import numpy as np
 from transformers.models.bert import BertTokenizer
 from sklearn.model_selection import train_test_split
 
@@ -14,6 +15,13 @@ class TextData(Dataset):
         self.tokenizer = tokenizer
         self.max_length = max_length
 
+    def get_weight(self):
+        if self.mode == 'test':
+            raise('test mode doesnot support get weight')
+        labels = np.array(self.labels)
+        counts = np.bincount(labels)
+        counts /= np.sum(counts)
+        return torch.tensor(1 / counts, dtype=torch.float32)
     def __len__(self):
         return len(self.texts)
 

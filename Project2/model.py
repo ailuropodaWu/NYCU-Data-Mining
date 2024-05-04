@@ -59,6 +59,7 @@ class TrainingAgent():
         self.train_dataloader = DataLoader(train_data, batch_size=self.batch_size, shuffle=True)
         self.val_dataloader = DataLoader(val_data, batch_size=self.batch_size)
         self.test_dataloader = DataLoader(test_data, batch_size=1)
+        self.loss_weight = train_data.get_weight()
         
         self.optimizer = AdamW(self.model.parameters(), lr=self.lr)
         total_steps = len(self.train_dataloader) * self.epochs
@@ -100,7 +101,7 @@ class TrainingAgent():
             attention_mask = batch['attention_mask'].to(self.device)
             labels = batch['label'].to(self.device)
             outputs = self.model(input_ids=input_ids, attention_mask=attention_mask)
-            loss = nn.CrossEntropyLoss()(outputs, labels)
+            loss = nn.CrossEntropyLoss(weight=self.loss_weight)(outputs, labels)
             loss.backward()
             self.optimizer.step()
             self.scheduler.step()
