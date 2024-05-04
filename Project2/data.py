@@ -20,8 +20,9 @@ class TextData(Dataset):
             raise('test mode doesnot support get weight')
         labels = np.array(self.labels)
         counts = np.bincount(labels)
-        counts /= np.sum(counts)
+        counts = counts / np.sum(counts)
         return torch.tensor(1 / counts, dtype=torch.float32)
+    
     def __len__(self):
         return len(self.texts)
 
@@ -59,9 +60,8 @@ def read_data(data_path, tokenizer_root='bert-base-uncased', max_length=1024, mo
     
 if __name__ == '__main__':
     data_path = './dataset/train.json'
-    data = read_data(data_path)
-    print(len(data))
-    print(data[0])
+    data, _ = read_data(data_path)
+    print(data.get_weight())
     
     
     
