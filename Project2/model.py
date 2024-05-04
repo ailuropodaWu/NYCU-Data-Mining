@@ -1,39 +1,97 @@
-from transformers.models.bert.modeling_bert import BertPreTrainedModel, BertModel
-import torch.nn as nn
+import torch
+from argparse import ArgumentParser
+from torch import nn
+from transformers.models.bert import BertModel
+from torch.optim import AdamW
+from torch.optim.lr_scheduler import LinearLR
+from torch.utils.data import DataLoader
+from data import read_data
+from sklearn.metrics import accuracy_score, classification_report
+from tqdm import tqdm
 
-# BERT Model
-class BertClassifier(BertPreTrainedModel):
-    def __init__(self, config, args):
-        super(BertClassifier, self).__init__(config)
-        self.bert = BertModel(config)
-        self.num_labels = args["num_class"]
-        self.dropout = nn.Dropout(args["dropout"])
-        self.classifier = nn.Linear(config.hidden_size, self.num_labels)
-        self.init_weights()
 
-    # forward function, data in model will do this
-    def forward(self, input_ids=None, attention_mask=None, token_type_ids=None, position_ids=None,
-                head_mask=None, inputs_embeds=None, labels=None, output_attentions=None,
-                output_hidden_states=None, return_dict=None):
+class BERTClassifier(nn.Module):
+    def __init__(self, bert_model_name, num_classes, dropout_ratio):
+        super(BERTClassifier, self).__init__()
+        self.bert = BertModel.from_pretrained(bert_model_name)
+        self.dropout = nn.Dropout(dropout_ratio)
+        self.fc = nn.Linear(self.bert.config.hidden_size, num_classes)
 
-        return_dict = return_dict if return_dict is not None else self.config.use_return_dict
-
-        # bert output
-        outputs = self.bert(
-            input_ids,
-            attention_mask=attention_mask,
-            token_type_ids=token_type_ids,
-            position_ids=position_ids,
-            head_mask=head_mask,
-            inputs_embeds=inputs_embeds,
-            output_attentions=output_attentions,
-            output_hidden_states=output_hidden_states,
-            return_dict=return_dict
-        )
-
-        # get its [CLS] logits
-        pooled_output = outputs[1]
-        pooled_output = self.dropout(pooled_output) # add dropout
-        logits = self.classifier(pooled_output) # add linear classifier
-
+    def forward(self, input_ids, attention_mask):
+        outputs = self.bert(input_ids=input_ids, attention_mask=attention_mask)
+        pooled_output = outputs.pooler_output
+        x = self.dropout(pooled_output)
+        logits = self.fc(x)
         return logits
+    
+
+class TrainingAgent():
+    def __init__(self):
+        train_data_path = "./dataset/train.json"
+        parser = ArgumentParser()
+        parser.add_argument("--epochs", nargs='?', type=int, default=20)
+        parser.add_argument("--batch_size", nargs='?', type=int, default=8)
+        parser.add_argument("--lr", nargs='?', type=float, default=2e-5)
+        parser.add_argument("--weight_decay", nargs='?', type=float, default=1e-2)
+        parser.add_argument("--dropout_ratio", nargs='?', type=float, default=0.2)
+        parser.add_argument("--max_length", nargs='?', type=int, default=256)
+        parser.add_argument("--model_root", nargs='?', type=str, default='bert-base-uncased')
+        args = parser.parse_args()
+        self.epochs = args.epochs
+        self.batch_size = args.batch_size
+        self.lr = args.lr
+        self.weight_decay = args.weight_decay
+        self.dropout_ratio = args.dropout_ratio
+        self.max_length = args.max_length
+        self.model_root = args.model_root
+        self.device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+        
+        self.model = BERTClassifier(self.model_root, 5, self.dropout_ratio).to(self.device)
+        train_data, val_data = read_data(train_data_path, self.model_root, self.max_length)
+        self.train_dataloader = DataLoader(train_data, batch_size=self.batch_size, shuffle=True)
+        self.val_dataloader = DataLoader(val_data, batch_size=self.batch_size)
+        
+        self.optimizer = AdamW(self.model.parameters(), lr=self.lr)
+        total_steps = len(self.train_dataloader) * self.epochs
+        self.scheduler = LinearLR(self.optimizer, total_iters=total_steps)
+    
+    def train(self):
+        for epoch in range(self.epochs):
+            print(f"Epoch {epoch + 1}/{self.epochs}")
+            self._train()
+            accuracy, report = self._evaluate()
+            print(f"Validation Accuracy: {accuracy:.4f}")
+            print(report)
+        torch.save(self.model.state_dict(), f"./model/bert_classifier_epoch_{self.epochs}_batch_{self.batch_size}_lr_{self.lr}.pth")
+    
+    def _train(self):
+        self.model.train()
+        for batch in tqdm(self.train_dataloader):
+            self.optimizer.zero_grad()
+            input_ids = batch['input_ids'].to(self.device)
+            attention_mask = batch['attention_mask'].to(self.device)
+            labels = batch['label'].to(self.device)
+            outputs = self.model(input_ids=input_ids, attention_mask=attention_mask)
+            loss = nn.CrossEntropyLoss()(outputs, labels)
+            loss.backward()
+            self.optimizer.step()
+            self.scheduler.step()
+            
+    def _evaluate(self):
+        self.model.eval()
+        predictions = []
+        actual_labels = []
+        with torch.no_grad():
+            for batch in self.val_dataloader:
+                input_ids = batch['input_ids'].to(self.device)
+                attention_mask = batch['attention_mask'].to(self.device)
+                labels = batch['label'].to(self.device)
+                outputs = self.model(input_ids=input_ids, attention_mask=attention_mask)
+                _, preds = torch.max(outputs, dim=1)
+                predictions.extend(preds.cpu().tolist())
+                actual_labels.extend(labels.cpu().tolist())
+        return accuracy_score(actual_labels, predictions), classification_report(actual_labels, predictions)
+
+if __name__ == "__main__":
+    agent = TrainingAgent()
+    agent.train()
