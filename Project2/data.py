@@ -43,21 +43,23 @@ def read_data(data_path, tokenizer_root='bert-base-uncased', max_length=1024, mo
     df = pd.read_json(data_path)
     tokenizer = BertTokenizer.from_pretrained(tokenizer_root)
     text = []
-    nltk.download('stopwords')
     nltk_stopwords = nltk.corpus.stopwords.words('english')
     count = 0
+    stopword_drop_ratio = 0.5
+    verified_drop_ratio = 0.5
+    helpful_drop_ratio = 0.3
     for i, row in df.iterrows():
-        t = f"[CLS] {row['title']} [SEP] {row['text']}"
+        t = f"[CLS] {row['title']} {row['text']}"
         url_pattern = "((http|https)\:\/\/)?[a-zA-Z0-9\.\/\?\:@\-_=#]+\.([a-zA-Z]){2,6}([a-zA-Z0-9\.\&\/\?\:@\-_=#])*"
         t = re.sub(url_pattern, '', t)
         t = t.replace("<br />", " ")
         t_list = t.split()
         t_process = ""
         for w in t_list:
-            if w not in nltk_stopwords or random.random() < 0.5:
+            if w not in nltk_stopwords or random.random() > stopword_drop_ratio:
                 t_process += f' {w}'
-        text.append(t_process)
-    print(f"Count: {count}")
+        if mode == 'test' or (row['verified_purchase'] or random.random() > verified_drop_ratio) or (row['helpful_vote'] > 0 or random.random() > helpful_drop_ratio):
+            text.append(t_process)
     helpful = df['helpful_vote'].to_list()
     verified = df['verified_purchase'].to_list()
     if mode == "train":

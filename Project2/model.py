@@ -9,13 +9,14 @@ from torch.utils.data import DataLoader
 from data import read_data
 from sklearn.metrics import accuracy_score, classification_report
 from tqdm import tqdm
+from torch.utils.tensorboard import SummaryWriter
 
 
 class BERTClassifier(nn.Module):
     def __init__(self, bert_model_name, num_classes, dropout_ratio):
         super(BERTClassifier, self).__init__()
-        # self.bert = BertModel.from_pretrained(bert_model_name)
-        self.bert = BertForSequenceClassification.from_pretrained(bert_model_name, num_labels=num_classes)
+        self.bert = BertModel.from_pretrained(bert_model_name)
+        # self.bert = BertForSequenceClassification.from_pretrained(bert_model_name, num_labels=num_classes)
         self.dropout = nn.Dropout(dropout_ratio)
         self.fc = nn.Linear(self.bert.config.hidden_size, num_classes)
 
@@ -51,11 +52,14 @@ class TrainingAgent():
         self.max_length = args.max_length
         self.model_root = args.model_root
         self.model_save = args.model_save
+        
+        self.model_name = f"bert_classifier_epoch_{self.epochs}_batch_{self.batch_size}_lr_{self.lr}"
         self.model_save_root = os.path.join('model', self.model_root, self.model_save)
         self.prediction_root = os.path.join('predictions', self.model_save)
-        self.model_name = f"bert_classifier_epoch_{self.epochs}_batch_{self.batch_size}_lr_{self.lr}"
+        self.log_root = os.path.join('logs', self.model_save, self.model_name)
         os.makedirs(self.model_save_root, exist_ok=True)
         os.makedirs(self.prediction_root, exist_ok=True)
+        os.makedirs(self.log_root, exist_ok=True)
         
         self.model = BERTClassifier(self.model_root, 5, self.dropout_ratio).to(self.device)
         train_data, val_data = read_data(train_data_path, self.model_root, self.max_length, mode="train")
@@ -68,14 +72,17 @@ class TrainingAgent():
         self.optimizer = AdamW(self.model.parameters(), lr=self.lr, weight_decay=self.weight_decay)
         total_steps = len(self.train_dataloader) * self.epochs
         self.scheduler = LinearLR(self.optimizer, total_iters=total_steps)
+        self.writer = SummaryWriter(self.log_root)
     
     def train(self):
         for epoch in range(self.epochs):
             print(f"Epoch {epoch + 1}/{self.epochs}")
-            self._train()
+            train_acc, train_loss = self._train()
             accuracy, report = self._evaluate()
             print(f"Validation Accuracy: {accuracy:.4f}")
             print(report)
+            self.writer.add_scalar('Train/Loss', train_loss, epoch)
+            self.writer.add_scalar('Train/Acc', train_acc, epoch)
         torch.save(self.model.state_dict(), os.path.join(self.model_save_root, f"{self.model_name}.pth"))
     
     def inference(self):  
@@ -99,6 +106,10 @@ class TrainingAgent():
             
     def _train(self):
         self.model.train()
+        train_loss = 0
+        train_acc = 0
+        data_size = len(self.train_dataloader.dataset)
+        
         for batch in tqdm(self.train_dataloader):
             self.optimizer.zero_grad()
             input_ids = batch['input_ids'].to(self.device)
@@ -109,6 +120,13 @@ class TrainingAgent():
             loss.backward()
             self.optimizer.step()
             self.scheduler.step()
+            
+            train_loss += loss.item()
+            train_acc += (outputs.argmax(dim=-1) == labels).sum().item()
+            
+        train_loss /= data_size
+        train_acc /= data_size
+        return train_acc, train_loss
             
     def _evaluate(self):
         self.model.eval()
