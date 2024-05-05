@@ -13,19 +13,23 @@ from torch.utils.tensorboard import SummaryWriter
 
 
 class BERTClassifier(nn.Module):
-    def __init__(self, bert_model_name, num_classes, dropout_ratio):
+    def __init__(self, bert_model_name, num_classes, dropout_ratio, classification_model=False):
         super(BERTClassifier, self).__init__()
-        self.bert = BertModel.from_pretrained(bert_model_name)
-        # self.bert = BertForSequenceClassification.from_pretrained(bert_model_name, num_labels=num_classes)
+        self.bert = BertModel.from_pretrained(bert_model_name) if not classification_model \
+            else BertForSequenceClassification.from_pretrained(bert_model_name, num_labels=num_classes)
         self.dropout = nn.Dropout(dropout_ratio)
         self.fc = nn.Linear(self.bert.config.hidden_size, num_classes)
+        self.classification_model = classification_model
 
     def forward(self, input_ids, attention_mask):
         outputs = self.bert(input_ids=input_ids, attention_mask=attention_mask)
-        # pooled_output = outputs.pooler_output
-        # x = self.dropout(pooled_output)
-        # logits = self.fc(x)
-        return outputs.logits
+        if not self.classification_model:
+            pooled_output = outputs.pooler_output
+            x = self.dropout(pooled_output)
+            logits = self.fc(x)
+            return logits
+        else:
+            return outputs.logits
     
 
 class TrainingAgent():
@@ -41,6 +45,7 @@ class TrainingAgent():
         parser.add_argument("--max_length", nargs='?', type=int, default=256)
         parser.add_argument("--model_root", nargs='?', type=str, default='bert-base-uncased')
         parser.add_argument("--model_save", nargs='?', type=str, default='temp')
+        parser.add_argument("--use_classification", action='store_true', default=False)
         args = parser.parse_args()
         
         self.device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
@@ -61,7 +66,7 @@ class TrainingAgent():
         os.makedirs(self.prediction_root, exist_ok=True)
         os.makedirs(self.log_root, exist_ok=True)
         
-        self.model = BERTClassifier(self.model_root, 5, self.dropout_ratio).to(self.device)
+        self.model = BERTClassifier(self.model_root, 5, self.dropout_ratio, args.use_classification).to(self.device)
         train_data, val_data = read_data(train_data_path, self.model_root, self.max_length, mode="train")
         test_data = read_data(test_data_path, self.model_root, self.max_length, mode="test")
         self.train_dataloader = DataLoader(train_data, batch_size=self.batch_size, shuffle=True)
