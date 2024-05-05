@@ -43,10 +43,14 @@ def read_data(data_path, tokenizer_root='bert-base-uncased', max_length=1024, mo
     df = pd.read_json(data_path)
     tokenizer = BertTokenizer.from_pretrained(tokenizer_root)
     text = []
+    label = []
+    nltk.download('stopwords')
     nltk_stopwords = nltk.corpus.stopwords.words('english')
     count = 0
     stopword_drop_ratio = 0.5
     verified_drop_ratio = 0.5
+    helpful = df['helpful_vote'].to_list()
+    verified = df['verified_purchase'].to_list()
     helpful_drop_ratio = 0.3
     for i, row in df.iterrows():
         t = f"[CLS] {row['title']} {row['text']}"
@@ -60,10 +64,8 @@ def read_data(data_path, tokenizer_root='bert-base-uncased', max_length=1024, mo
                 t_process += f' {w}'
         if mode == 'test' or (row['verified_purchase'] or random.random() > verified_drop_ratio) or (row['helpful_vote'] > 0 or random.random() > helpful_drop_ratio):
             text.append(t_process)
-    helpful = df['helpful_vote'].to_list()
-    verified = df['verified_purchase'].to_list()
+            label.append(row['rating'] - 1 if mode == 'train' else None)
     if mode == "train":
-        label = [l - 1 for l in df['rating'].to_list()]
         train_texts, val_texts, train_labels, val_labels = train_test_split(text, label, test_size=0.2, random_state=42)
         train_data = TextData(train_texts, train_labels, tokenizer, max_length, mode="train")
         val_data = TextData(val_texts, val_labels, tokenizer, max_length, mode="train")
