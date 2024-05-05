@@ -5,7 +5,8 @@ import numpy as np
 from transformers.models.bert import BertTokenizer
 from sklearn.model_selection import train_test_split
 import nltk
-
+import re
+import random
 
 
 class TextData(Dataset):
@@ -42,9 +43,21 @@ def read_data(data_path, tokenizer_root='bert-base-uncased', max_length=1024, mo
     df = pd.read_json(data_path)
     tokenizer = BertTokenizer.from_pretrained(tokenizer_root)
     text = []
+    nltk.download('stopwords')
+    nltk_stopwords = nltk.corpus.stopwords.words('english')
+    count = 0
     for i, row in df.iterrows():
-        t = f"[CLS] Title: {row['title']} Comment: {row['text']}"
-        text.append(t.replace("<br />", " "))
+        t = f"[CLS] {row['title']} [SEP] {row['text']}"
+        url_pattern = "((http|https)\:\/\/)?[a-zA-Z0-9\.\/\?\:@\-_=#]+\.([a-zA-Z]){2,6}([a-zA-Z0-9\.\&\/\?\:@\-_=#])*"
+        t = re.sub(url_pattern, '', t)
+        t = t.replace("<br />", " ")
+        t_list = t.split()
+        t_process = ""
+        for w in t_list:
+            if w not in nltk_stopwords or random.random() < 0.5:
+                t_process += f' {w}'
+        text.append(t_process)
+    print(f"Count: {count}")
     helpful = df['helpful_vote'].to_list()
     verified = df['verified_purchase'].to_list()
     if mode == "train":

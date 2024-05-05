@@ -21,10 +21,10 @@ class BERTClassifier(nn.Module):
 
     def forward(self, input_ids, attention_mask):
         outputs = self.bert(input_ids=input_ids, attention_mask=attention_mask)
-        pooled_output = outputs.pooler_output
-        x = self.dropout(pooled_output)
-        logits = self.fc(x)
-        return logits
+        # pooled_output = outputs.pooler_output
+        # x = self.dropout(pooled_output)
+        # logits = self.fc(x)
+        return outputs.logits
     
 
 class TrainingAgent():
@@ -52,8 +52,10 @@ class TrainingAgent():
         self.model_root = args.model_root
         self.model_save = args.model_save
         self.model_save_root = os.path.join('model', self.model_root, self.model_save)
+        self.prediction_root = os.path.join('predictions', self.model_save)
         self.model_name = f"bert_classifier_epoch_{self.epochs}_batch_{self.batch_size}_lr_{self.lr}"
         os.makedirs(self.model_save_root, exist_ok=True)
+        os.makedirs(self.prediction_root, exist_ok=True)
         
         self.model = BERTClassifier(self.model_root, 5, self.dropout_ratio).to(self.device)
         train_data, val_data = read_data(train_data_path, self.model_root, self.max_length, mode="train")
@@ -63,7 +65,7 @@ class TrainingAgent():
         self.test_dataloader = DataLoader(test_data, batch_size=1)
         self.loss_weight = train_data.get_weight().to(self.device)
         
-        self.optimizer = AdamW(self.model.parameters(), lr=self.lr)
+        self.optimizer = AdamW(self.model.parameters(), lr=self.lr, weight_decay=self.weight_decay)
         total_steps = len(self.train_dataloader) * self.epochs
         self.scheduler = LinearLR(self.optimizer, total_iters=total_steps)
     
@@ -78,7 +80,7 @@ class TrainingAgent():
     
     def inference(self):  
         predictions = self._inference()
-        with open(os.path.join('predictions', f"{self.model_name}.csv"), 'w') as f:
+        with open(os.path.join(self.prediction_root, f"{self.model_name}.csv"), 'w') as f:
             f.write('index,rating\n')
             for i, pred in enumerate(predictions):
                 f.write(f'index_{i},{pred+1}\n')
