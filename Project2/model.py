@@ -14,8 +14,8 @@ from tqdm import tqdm
 class BERTClassifier(nn.Module):
     def __init__(self, bert_model_name, num_classes, dropout_ratio):
         super(BERTClassifier, self).__init__()
-        self.bert = BertModel.from_pretrained(bert_model_name)
-        # self.bert = BertForSequenceClassification.from_pretrained(bert_model_name)
+        # self.bert = BertModel.from_pretrained(bert_model_name)
+        self.bert = BertForSequenceClassification.from_pretrained(bert_model_name, num_labels=num_classes)
         self.dropout = nn.Dropout(dropout_ratio)
         self.fc = nn.Linear(self.bert.config.hidden_size, num_classes)
 
@@ -39,7 +39,10 @@ class TrainingAgent():
         parser.add_argument("--dropout_ratio", nargs='?', type=float, default=0.2)
         parser.add_argument("--max_length", nargs='?', type=int, default=256)
         parser.add_argument("--model_root", nargs='?', type=str, default='bert-base-uncased')
+        parser.add_argument("--model_save", nargs='?', type=str, default='temp')
         args = parser.parse_args()
+        
+        self.device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
         self.epochs = args.epochs
         self.batch_size = args.batch_size
         self.lr = args.lr
@@ -47,11 +50,10 @@ class TrainingAgent():
         self.dropout_ratio = args.dropout_ratio
         self.max_length = args.max_length
         self.model_root = args.model_root
-        self.model_save_root = os.path.join('model', self.model_root)
+        self.model_save = args.model_save
+        self.model_save_root = os.path.join('model', self.model_root, self.model_save)
         self.model_name = f"bert_classifier_epoch_{self.epochs}_batch_{self.batch_size}_lr_{self.lr}"
-        if not os.path.exists(self.model_save_root):
-            os.mkdir(self.model_save_root)
-        self.device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+        os.makedirs(self.model_save_root, exist_ok=True)
         
         self.model = BERTClassifier(self.model_root, 5, self.dropout_ratio).to(self.device)
         train_data, val_data = read_data(train_data_path, self.model_root, self.max_length, mode="train")

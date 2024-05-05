@@ -4,6 +4,7 @@ import torch
 import numpy as np
 from transformers.models.bert import BertTokenizer
 from sklearn.model_selection import train_test_split
+import nltk
 
 
 
