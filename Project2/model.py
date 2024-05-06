@@ -61,7 +61,7 @@ class TrainingAgent():
         self.model_name = f"bert_classifier_epoch_{self.epochs}_batch_{self.batch_size}_lr_{self.lr}"
         self.model_save_root = os.path.join('model', self.model_root, self.model_save)
         self.prediction_root = os.path.join('predictions', self.model_save)
-        self.log_root = os.path.join('logs', f'{self.model_save}_{self.model_name}')
+        self.log_root = os.path.join('logs', f'{self.model_save}')
         os.makedirs(self.model_save_root, exist_ok=True)
         os.makedirs(self.prediction_root, exist_ok=True)
         os.makedirs(self.log_root, exist_ok=True)
