@@ -39,7 +39,7 @@ class TextData(Dataset):
         else:
             raise("Data reading mode error")
         
-def read_data(data_path, tokenizer_root='bert-base-uncased', max_length=1024, mode='train'):
+def read_data(data_path, tokenizer_root='bert-base-uncased', max_length=256, mode='train', analyze=False):
     df = pd.read_json(data_path)
     tokenizer = BertTokenizer.from_pretrained(tokenizer_root)
     text = []
@@ -61,10 +61,24 @@ def read_data(data_path, tokenizer_root='bert-base-uncased', max_length=1024, mo
         t_process = ""
         for w in t_list:
             if w not in nltk_stopwords or random.random() > stopword_drop_ratio:
-                t_process += f' {w}'
+                t_process += f' {w}'    
         if mode == 'test' or (row['verified_purchase'] or random.random() > verified_drop_ratio) or (row['helpful_vote'] > 0 or random.random() > helpful_drop_ratio):
             text.append(t_process)
             label.append(row['rating'] - 1 if mode == 'train' else None)
+    if analyze:
+        import matplotlib.pyplot as plt
+        text_len = [len(t.split()) for t in text]
+        text_len = np.array(text_len)
+        text_len.sort()
+        count = np.unique(text_len, return_index=True, return_counts=True)
+        x, h = count[0].tolist(), count[2].tolist()
+        print(f'Mean of len: {text_len[int(text_len.size * 0.5)]}')
+        print(f'Most of len: {count[0][count[2].argmax()]}')
+        print(f'Quot of len: {text_len[int(text_len.size * 0.95)]}')
+        
+        plt.bar(x, h)
+        plt.savefig('analyze/text_len.png')
+        
     if mode == "train":
         train_texts, val_texts, train_labels, val_labels = train_test_split(text, label, test_size=0.2, random_state=42)
         train_data = TextData(train_texts, train_labels, tokenizer, max_length, mode="train")
@@ -77,8 +91,8 @@ def read_data(data_path, tokenizer_root='bert-base-uncased', max_length=1024, mo
         raise("Data reading mode error")
     
 if __name__ == '__main__':
-    data_path = './dataset/train.json'
-    data, _ = read_data(data_path)
+    data_path = './dataset/test.json'
+    data = read_data(data_path, analyze=True, mode='test')
     print(data.get_weight())
     
     
