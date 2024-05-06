@@ -33,13 +33,13 @@ class TextData(Dataset):
         encoding = self.tokenizer(text, return_tensors='pt', max_length=self.max_length, padding='max_length', truncation=True)
         if self.mode == "train":
             label = self.labels[idx]
-            return {'input_ids': encoding['input_ids'].flatten(), 'attention_mask': encoding['attention_mask'].flatten(), 'label': torch.tensor(label)}
+            return {'input_ids': encoding['input_ids'].flatten(), 'attention_mask': encoding['attention_mask'].flatten(), 'label': torch.tensor(label), 'text': text}
         elif self.mode == "test":
             return {'input_ids': encoding['input_ids'].flatten(), 'attention_mask': encoding['attention_mask'].flatten()}
         else:
             raise("Data reading mode error")
         
-def read_data(data_path, tokenizer_root='bert-base-uncased', max_length=256, mode='train', analyze=False):
+def read_data(data_path, tokenizer_root='bert-base-uncased', max_length=128, mode='train', analyze=False):
     df = pd.read_json(data_path)
     tokenizer = BertTokenizer.from_pretrained(tokenizer_root)
     text = []
@@ -53,10 +53,15 @@ def read_data(data_path, tokenizer_root='bert-base-uncased', max_length=256, mod
     verified = df['verified_purchase'].to_list()
     helpful_drop_ratio = 0.3
     for i, row in df.iterrows():
-        t = f"[CLS] {row['title']} {row['text']}"
-        url_pattern = "((http|https)\:\/\/)?[a-zA-Z0-9\.\/\?\:@\-_=#]+\.([a-zA-Z]){2,6}([a-zA-Z0-9\.\&\/\?\:@\-_=#])*"
-        t = re.sub(url_pattern, '', t)
+        t = f"{row['title']} {row['text']}"
+        url_pattern = r"((http|https)\:\/\/)?[a-zA-Z0-9\.\/\?\:@\-_=#]+\.([a-zA-Z]){2,6}([a-zA-Z0-9\.\&\/\?\:@\-_=#])*"
+        clean_pattern = r"[,.;@#?!&$]+\ *"
+
         t = t.replace("<br />", " ")
+        t = re.sub(url_pattern, '', t)
+        t = re.sub(clean_pattern, '', t)
+        t = t.lower()
+        t = "[CLS] " + t
         t_list = t.split()
         t_process = ""
         for w in t_list:
@@ -91,9 +96,10 @@ def read_data(data_path, tokenizer_root='bert-base-uncased', max_length=256, mod
         raise("Data reading mode error")
     
 if __name__ == '__main__':
-    data_path = './dataset/test.json'
-    data = read_data(data_path, analyze=True, mode='test')
-    print(data.get_weight())
+    data_path = './dataset/train.json'
+    data, val_data = read_data(data_path, mode='train')
+    print(data[0])
+    print(data[1])
     
     
     
