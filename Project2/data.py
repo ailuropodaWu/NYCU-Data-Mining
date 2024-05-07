@@ -8,6 +8,7 @@ import nltk
 import re
 import random
 
+nltk.download('stopwords')
 
 class TextData(Dataset):
     def __init__(self, texts, labels, tokenizer, max_length, mode):
@@ -38,38 +39,62 @@ class TextData(Dataset):
             return {'input_ids': encoding['input_ids'].flatten(), 'attention_mask': encoding['attention_mask'].flatten()}
         else:
             raise("Data reading mode error")
+def add_mask(text: str):
+    text = text.split()
+    start_idx = random.randint(0, len(text))
+    end_idx = random.randint(start_idx, len(text))
+    text = text[:start_idx] + ['[MASK]'] + text[end_idx:]
+    return " ".join(text)
+
+def clean_text(text):
+    stopword_drop_ratio = 0.5
+    nltk_stopwords = nltk.corpus.stopwords.words('english')
+    url_pattern = r"((http|https)\:\/\/)?[a-zA-Z0-9\.\/\?\:@\-_=#]+\.([a-zA-Z]){2,6}([a-zA-Z0-9\.\&\/\?\:@\-_=#])*"
+    punctuations_pattern = r"[,.;@#?!&$]+\ *"
+    html_pattern = r"<([a-z]+)(?![^>]*\/>)[^>]*>"
         
+    text = text.lower()
+    text = re.sub(r"[^a-zA-Z?.!,¿]+", " ", text)
+    text = re.sub(url_pattern, " ",text) 
+    text = re.sub(punctuations_pattern, " ",text) 
+    text = re.sub(html_pattern, " ", text)
+        
+    text = [word.lower() for word in text.split() if word.lower() not in nltk_stopwords or random.random() > stopword_drop_ratio]
+    
+    text = " ".join(text) 
+    emoji_pattern = re.compile("["
+                           u"\U0001F600-\U0001F64F"  # emoticons
+                           u"\U0001F300-\U0001F5FF"  # symbols & pictographs
+                           u"\U0001F680-\U0001F6FF"  # transport & map symbols
+                           u"\U0001F1E0-\U0001F1FF"  # flags (iOS)
+                           u"\U00002702-\U000027B0"
+                           u"\U000024C2-\U0001F251"
+                           "]+", flags=re.UNICODE)
+    text = emoji_pattern.sub(r'', text) #Removing emojis
+    
+    return text
+
 def read_data(data_path, tokenizer_root='bert-base-uncased', max_length=128, mode='train', analyze=False):
     df = pd.read_json(data_path)
-    tokenizer = BertTokenizer.from_pretrained(tokenizer_root)
+    tokenizer = BertTokenizer.from_pretrained(tokenizer_root, do_lower_case=True)
     text = []
     label = []
-    nltk.download('stopwords')
-    nltk_stopwords = nltk.corpus.stopwords.words('english')
     count = 0
-    stopword_drop_ratio = 0.5
     verified_drop_ratio = 0.5
-    helpful = df['helpful_vote'].to_list()
-    verified = df['verified_purchase'].to_list()
     helpful_drop_ratio = 0.3
+    masked_ratio = 0.85
     for i, row in df.iterrows():
         t = f"{row['title']} {row['text']}"
-        url_pattern = r"((http|https)\:\/\/)?[a-zA-Z0-9\.\/\?\:@\-_=#]+\.([a-zA-Z]){2,6}([a-zA-Z0-9\.\&\/\?\:@\-_=#])*"
-        clean_pattern = r"[,.;@#?!&$]+\ *"
-
-        t = t.replace("<br />", " ")
-        t = re.sub(url_pattern, '', t)
-        t = re.sub(clean_pattern, '', t)
-        t = t.lower()
-        t = "[CLS] " + t
-        t_list = t.split()
-        t_process = ""
-        for w in t_list:
-            if w not in nltk_stopwords or random.random() > stopword_drop_ratio:
-                t_process += f' {w}'    
-        if mode == 'test' or (row['verified_purchase'] or random.random() > verified_drop_ratio) or (row['helpful_vote'] > 0 or random.random() > helpful_drop_ratio):
-            text.append(t_process)
+        if mode == 'test' or \
+            (row['verified_purchase'] or random.random() > verified_drop_ratio) or \
+            (row['helpful_vote'] > 0 or random.random() > helpful_drop_ratio):
+            t = clean_text(t)
+            if random.random() < masked_ratio:
+                t = add_mask(t)
+            t = '[CLS] ' + t
+            text.append(t)
             label.append(row['rating'] - 1 if mode == 'train' else None)
+            
     if analyze:
         import matplotlib.pyplot as plt
         text_len = [len(t.split()) for t in text]
