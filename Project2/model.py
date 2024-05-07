@@ -35,6 +35,7 @@ class BERTClassifier(nn.Module):
 class TrainingAgent():
     def __init__(self):
         train_data_path = "./dataset/train.json"
+        val_data_path = "./dataset/val.json"
         test_data_path = "./dataset/test.json"
         parser = ArgumentParser()
         parser.add_argument("--epochs", nargs='?', type=int, default=20)
@@ -67,7 +68,8 @@ class TrainingAgent():
         os.makedirs(self.log_root, exist_ok=True)
         
         self.model = BERTClassifier(self.model_root, 5, self.dropout_ratio, args.use_classification).to(self.device)
-        train_data, val_data = read_data(train_data_path, self.model_root, self.max_length, mode="train")
+        train_data = read_data(train_data_path, self.model_root, self.max_length, mode="train")
+        val_data = read_data(val_data_path, self.model_root, self.max_length, mode="val")
         test_data = read_data(test_data_path, self.model_root, self.max_length, mode="test")
         self.train_dataloader = DataLoader(train_data, batch_size=self.batch_size, shuffle=True)
         self.val_dataloader = DataLoader(val_data, batch_size=self.batch_size)

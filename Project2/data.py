@@ -32,21 +32,22 @@ class TextData(Dataset):
     def __getitem__(self, idx):
         text = self.texts[idx]
         encoding = self.tokenizer(text, return_tensors='pt', max_length=self.max_length, padding='max_length', truncation=True)
-        if self.mode == "train":
+        if self.mode == "train" or self.mode == "val":
             label = self.labels[idx]
             return {'input_ids': encoding['input_ids'].flatten(), 'attention_mask': encoding['attention_mask'].flatten(), 'label': torch.tensor(label), 'text': text}
         elif self.mode == "test":
             return {'input_ids': encoding['input_ids'].flatten(), 'attention_mask': encoding['attention_mask'].flatten()}
         else:
             raise("Data reading mode error")
+        
 def add_mask(text: str):
     text = text.split()
     start_idx = random.randint(0, len(text))
-    end_idx = random.randint(start_idx, len(text))
+    end_idx = random.randint(start_idx, max(len(text), start_idx + int(len(text) * 0.15)))
     text = text[:start_idx] + ['[MASK]'] + text[end_idx:]
     return " ".join(text)
 
-def clean_text(text):
+def clean_text(text: str):
     stopword_drop_ratio = 0.5
     nltk_stopwords = nltk.corpus.stopwords.words('english')
     url_pattern = r"((http|https)\:\/\/)?[a-zA-Z0-9\.\/\?\:@\-_=#]+\.([a-zA-Z]){2,6}([a-zA-Z0-9\.\&\/\?\:@\-_=#])*"
@@ -76,24 +77,25 @@ def clean_text(text):
 
 def read_data(data_path, tokenizer_root='bert-base-uncased', max_length=128, mode='train', analyze=False):
     df = pd.read_json(data_path)
+    random_seed = 42
+    random.seed(random_seed)
     tokenizer = BertTokenizer.from_pretrained(tokenizer_root, do_lower_case=True)
     text = []
     label = []
-    count = 0
     verified_drop_ratio = 0.5
     helpful_drop_ratio = 0.3
-    masked_ratio = 0.85
+    masked_ratio = 0.5
     for i, row in df.iterrows():
         t = f"{row['title']} {row['text']}"
-        if mode == 'test' or \
+        if mode != 'train' or \
             (row['verified_purchase'] or random.random() > verified_drop_ratio) or \
             (row['helpful_vote'] > 0 or random.random() > helpful_drop_ratio):
             t = clean_text(t)
-            if random.random() < masked_ratio:
+            if mode == "train" and random.random() < masked_ratio:
                 t = add_mask(t)
             t = '[CLS] ' + t
             text.append(t)
-            label.append(row['rating'] - 1 if mode == 'train' else None)
+            label.append(row['rating'] - 1 if mode != 'test' else None)
             
     if analyze:
         import matplotlib.pyplot as plt
@@ -109,20 +111,16 @@ def read_data(data_path, tokenizer_root='bert-base-uncased', max_length=128, mod
         plt.bar(x, h)
         plt.savefig('analyze/text_len.png')
         
-    if mode == "train":
-        train_texts, val_texts, train_labels, val_labels = train_test_split(text, label, test_size=0.2, random_state=42)
-        train_data = TextData(train_texts, train_labels, tokenizer, max_length, mode="train")
-        val_data = TextData(val_texts, val_labels, tokenizer, max_length, mode="train")
-        return train_data, val_data
-    elif mode == "test":
-        test_data = TextData(text, None, tokenizer, max_length, mode="test")
-        return test_data
-    else:
-        raise("Data reading mode error")
+    return TextData(text, label if mode != "test" else None, tokenizer, max_length, mode)
     
 if __name__ == '__main__':
     data_path = './dataset/train.json'
-    data, val_data = read_data(data_path, mode='train')
+    data = read_data(data_path, mode='train')
+    print(data[0])
+    print(data[1])
+    
+    data_path = './dataset/val.json'
+    data = read_data(data_path, mode='val')
     print(data[0])
     print(data[1])
     
