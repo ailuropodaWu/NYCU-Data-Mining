@@ -10,9 +10,6 @@ import random
 from argparse import ArgumentParser
 
 nltk.download('stopwords')
-parser = ArgumentParser()
-parser.add_argument("--text_type", nargs='?', type=str, default='title_comment', help="[title_comment, title, comment]")
-TYPE = parser.parse_args().text_type
 
 class TextData(Dataset):
     def __init__(self, texts, labels, tokenizer, max_length, mode):
@@ -79,7 +76,7 @@ def clean_text(text: str):
     
     return text
 
-def read_data(data_path, tokenizer_root='bert-base-uncased', max_length=128, mode='train', analyze=False):
+def read_data(data_path, tokenizer_root='bert-base-uncased', max_length=128, mode='train', analyze=False, type="title_conmment"):
     assert TYPE in ['title', 'comment', 'title_comment']
     print(f"Read data with type {TYPE} mode {mode}")
     df = pd.read_json(data_path)
@@ -93,9 +90,9 @@ def read_data(data_path, tokenizer_root='bert-base-uncased', max_length=128, mod
     masked_ratio = 0.5
     for i, row in df.iterrows():
         t = ""
-        if "title" in TYPE:
+        if "title" in type:
             t += row['title'] + ' '
-        if "comment" in TYPE:
+        if "comment" in type:
             t += row['text'] + ' '
             
         if mode != 'train' or \
