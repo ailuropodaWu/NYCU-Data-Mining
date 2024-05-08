@@ -47,6 +47,7 @@ class TrainingAgent():
         parser.add_argument("--model_root", nargs='?', type=str, default='bert-base-uncased')
         parser.add_argument("--model_save", nargs='?', type=str, default='temp')
         parser.add_argument("--use_classification", action='store_true', default=False)
+        parser.add_argument(name='--text_type', nargs='?', action="store_const", type=str, default='title_comment', help="[title_comment, title, comment]")
         args = parser.parse_args()
         
         self.device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
@@ -58,6 +59,7 @@ class TrainingAgent():
         self.max_length = args.max_length
         self.model_root = args.model_root
         self.model_save = args.model_save
+        self.text_type = args.text_type
         
         self.model_name = f"bert_classifier_epoch_{self.epochs}_batch_{self.batch_size}_lr_{self.lr}"
         self.model_save_root = os.path.join('model', self.model_root, self.model_save)
@@ -68,9 +70,9 @@ class TrainingAgent():
         os.makedirs(self.log_root, exist_ok=True)
         
         self.model = BERTClassifier(self.model_root, 5, self.dropout_ratio, args.use_classification).to(self.device)
-        train_data = read_data(train_data_path, self.model_root, self.max_length, mode="train")
-        val_data = read_data(val_data_path, self.model_root, self.max_length, mode="val")
-        test_data = read_data(test_data_path, self.model_root, self.max_length, mode="test")
+        train_data = read_data(train_data_path, self.model_root, self.max_length, mode="train", type=self.text_type)
+        val_data = read_data(val_data_path, self.model_root, self.max_length, mode="val", type=self.text_type)
+        test_data = read_data(test_data_path, self.model_root, self.max_length, mode="test", type=self.text_type)
         self.train_dataloader = DataLoader(train_data, batch_size=self.batch_size, shuffle=True)
         self.val_dataloader = DataLoader(val_data, batch_size=self.batch_size)
         self.test_dataloader = DataLoader(test_data, batch_size=1)
