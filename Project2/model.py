@@ -65,7 +65,6 @@ class TrainingAgent():
         self.max_length = args.max_length
         self.model_root = args.model_root
         self.model_save = args.model_save
-        self.text_type = args.text_type
         
         self.model_name = f"bert_classifier_epoch_{self.epochs}_batch_{self.batch_size}_lr_{self.lr}"
         self.model_save_root = os.path.join('model', self.model_root, self.model_save)
