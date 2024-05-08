@@ -75,7 +75,8 @@ def clean_text(text: str):
     
     return text
 
-def read_data(data_path, tokenizer_root='bert-base-uncased', max_length=128, mode='train', analyze=False):
+def read_data(data_path, tokenizer_root='bert-base-uncased', max_length=128, mode='train', analyze=False, type="title_comment"):
+    assert type in ['title', 'comment', 'title_comment']
     df = pd.read_json(data_path)
     random_seed = 42
     random.seed(random_seed)
@@ -86,7 +87,12 @@ def read_data(data_path, tokenizer_root='bert-base-uncased', max_length=128, mod
     helpful_drop_ratio = 0.3
     masked_ratio = 0.5
     for i, row in df.iterrows():
-        t = f"{row['title']} {row['text']}"
+        t = ""
+        if "title" in type:
+            t += row['title'] + ' '
+        if "comment" in type:
+            t += row['text'] + ' '
+            
         if mode != 'train' or \
             (row['verified_purchase'] or random.random() > verified_drop_ratio) or \
             (row['helpful_vote'] > 0 or random.random() > helpful_drop_ratio):
@@ -115,12 +121,12 @@ def read_data(data_path, tokenizer_root='bert-base-uncased', max_length=128, mod
     
 if __name__ == '__main__':
     data_path = './dataset/train.json'
-    data = read_data(data_path, mode='train')
+    data = read_data(data_path, mode='train', type="title")
     print(data[0])
     print(data[1])
     
     data_path = './dataset/val.json'
-    data = read_data(data_path, mode='val')
+    data = read_data(data_path, mode='val', type="title_comment")
     print(data[0])
     print(data[1])
     
