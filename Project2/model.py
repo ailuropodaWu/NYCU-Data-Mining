@@ -1,8 +1,9 @@
 import torch
+import transformers
 import os
 from argparse import ArgumentParser
 from torch import nn
-from transformers.models.bert import BertModel, BertForSequenceClassification
+from transformers.models.bert import BertConfig , BertModel, BertForSequenceClassification
 from torch.optim import AdamW
 from torch.optim.lr_scheduler import LinearLR
 from torch.utils.data import DataLoader
@@ -13,10 +14,14 @@ from torch.utils.tensorboard import SummaryWriter
 
 
 class BERTClassifier(nn.Module):
-    def __init__(self, bert_model_name, num_classes, dropout_ratio, classification_model=False):
+    def __init__(self, bert_model_name, num_classes, dropout_ratio, classification_model=False, pretrained_model=True):
         super(BERTClassifier, self).__init__()
-        self.bert = BertModel.from_pretrained(bert_model_name) if not classification_model \
-            else BertForSequenceClassification.from_pretrained(bert_model_name, num_labels=num_classes)
+        if not pretrained_model:
+            self.bert = BertModel(BertConfig(), add_pooling_layer=True)
+        elif not classification_model:
+            self.bert = BertModel.from_pretrained(bert_model_name)
+        else:
+            BertForSequenceClassification.from_pretrained(bert_model_name, num_labels=num_classes)
         self.dropout = nn.Dropout(dropout_ratio)
         self.fc = nn.Linear(self.bert.config.hidden_size, num_classes)
         self.classification_model = classification_model
@@ -47,7 +52,8 @@ class TrainingAgent():
         parser.add_argument("--model_root", nargs='?', type=str, default='bert-base-uncased')
         parser.add_argument("--model_save", nargs='?', type=str, default='temp')
         parser.add_argument("--use_classification", action='store_true', default=False)
-        parser.add_argument(name='--text_type', nargs='?', action="store_const", type=str, default='title_comment', help="[title_comment, title, comment]")
+        parser.add_argument("--not_use_pretrained", action='store_false', default=True)
+        parser.add_argument('--text_type', nargs='?', type=str, default='title_comment', help="[title_comment, title, comment]")
         args = parser.parse_args()
         
         self.device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
@@ -69,7 +75,7 @@ class TrainingAgent():
         os.makedirs(self.prediction_root, exist_ok=True)
         os.makedirs(self.log_root, exist_ok=True)
         
-        self.model = BERTClassifier(self.model_root, 5, self.dropout_ratio, args.use_classification).to(self.device)
+        self.model = BERTClassifier(self.model_root, 5, self.dropout_ratio, args.use_classification, args.not_use_pretrained).to(self.device)
         train_data = read_data(train_data_path, self.model_root, self.max_length, mode="train", type=self.text_type)
         val_data = read_data(val_data_path, self.model_root, self.max_length, mode="val", type=self.text_type)
         test_data = read_data(test_data_path, self.model_root, self.max_length, mode="test", type=self.text_type)
