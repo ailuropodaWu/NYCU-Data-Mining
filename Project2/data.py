@@ -77,8 +77,8 @@ def clean_text(text: str):
     return text
 
 def read_data(data_path, tokenizer_root='bert-base-uncased', max_length=128, mode='train', analyze=False, type="title_conmment"):
-    assert TYPE in ['title', 'comment', 'title_comment']
-    print(f"Read data with type {TYPE} mode {mode}")
+    assert type in ['title', 'comment', 'title_comment']
+    print(f"Read data with type {type} mode {mode}")
     df = pd.read_json(data_path)
     random_seed = 42
     random.seed(random_seed)
