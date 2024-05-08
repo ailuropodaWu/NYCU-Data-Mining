@@ -120,6 +120,7 @@ class TrainingAgent():
         return predictions
             
     def _train(self):
+        self.model.bert.train()
         self.model.train()
         train_loss = 0
         train_acc = 0
