@@ -95,8 +95,8 @@ def clean_text(text: str):
     return text
 
 
-def read_data(data_path, tokenizer_root='bert-base-uncased', max_length=128, mode='train', analyze=False, type="title_comment"):
-    assert type in ['title', 'comment', 'title_comment']
+def read_data(data_path, tokenizer_root='bert-base-uncased', max_length=128, mode='train', analyze=False, type="title_text"):
+    assert type in ['title', 'text', 'title_text']
     print(f"Read data with type {type} mode {mode}")
     df = pd.read_json(data_path)
     tokenizer = BertTokenizer.from_pretrained(tokenizer_root, do_lower_case=True)
@@ -107,7 +107,7 @@ def read_data(data_path, tokenizer_root='bert-base-uncased', max_length=128, mod
         t = ""
         if "title" in type:
             t += row['title'] + ' '
-        if "comment" in type:
+        if "text" in type:
             t += row['text'] + ' '
         t = clean_text(t)
         if mode == "train" and random.random() < masked_ratio:
@@ -176,7 +176,7 @@ class TrainingAgent():
         parser.add_argument("--max_length", nargs='?', type=int, default=256)
         parser.add_argument("--model_root", nargs='?', type=str, default='bert-base-uncased')
         parser.add_argument("--model_save", nargs='?', type=str, default='temp')
-        parser.add_argument('--text_type', nargs='?', type=str, default='title_comment', help="[title_comment, title, comment]")
+        parser.add_argument('--text_type', nargs='?', type=str, default='title_text', help="[title_text, title, text]")
         parser.add_argument("--use_classification", action='store_true', default=False)
         parser.add_argument("--not_use_pretrained", action='store_false', default=True)
         args = parser.parse_args()
