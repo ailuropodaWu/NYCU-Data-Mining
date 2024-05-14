@@ -57,9 +57,6 @@ def add_mask(text: str):
     return " ".join(text)
 
 def clean_text(text: str):
-    stopword_drop_ratio = 0
-    nltk_stopwords = nltk.corpus.stopwords.words('english')
-    words = nltk.corpus.words.words()
     lemmatizer = nltk.stem.WordNetLemmatizer()
 
     url_pattern = r"((http|https)\:\/\/)?[a-zA-Z0-9\.\/\?\:@\-_=#]+\.([a-zA-Z]){2,6}([a-zA-Z0-9\.\&\/\?\:@\-_=#])*"
@@ -80,12 +77,9 @@ def clean_text(text: str):
     text = text.translate(str.maketrans('', '', string.punctuation))
     
     text = nltk.word_tokenize(text.lower())
-    fdist = nltk.FreqDist(text)
     processed_text = []
     
     for t in text:
-        if (fdist[t] > fdist.N() or t in nltk_stopwords) and random.random() < stopword_drop_ratio:
-            continue
         t = lemmatizer.lemmatize(t)
         processed_text.append(t)
     
@@ -101,8 +95,6 @@ def read_data(data_path, tokenizer_root='bert-base-uncased', max_length=128, mod
     tokenizer = BertTokenizer.from_pretrained(tokenizer_root, do_lower_case=True)
     text = []
     label = []
-    verified_drop_ratio = 0.5
-    helpful_drop_ratio = 0.3
     masked_ratio = 0.5
     for i, row in tqdm(df.iterrows()):
         t = ""
@@ -110,16 +102,12 @@ def read_data(data_path, tokenizer_root='bert-base-uncased', max_length=128, mod
             t += row['title'] + ' '
         if "comment" in type:
             t += row['text'] + ' '
-        if True:
-        # if mode != 'train':
-            # (row['helpful_vote'] > 0 or random.random() > helpful_drop_ratio):
-            # (row['verified_purchase'] or random.random() > verified_drop_ratio) or \
-            t = clean_text(t)
-            if mode == "train" and random.random() < masked_ratio:
-                t = add_mask(t)
-            t = '[CLS] ' + t
-            text.append(t)
-            label.append(row['rating'] - 1 if mode != 'test' else None)
+        t = clean_text(t)
+        if mode == "train" and random.random() < masked_ratio:
+            t = add_mask(t)
+        t = '[CLS] ' + t
+        text.append(t)
+        label.append(row['rating'] - 1 if mode != 'test' else None)
             
     if analyze:
         import matplotlib.pyplot as plt
@@ -135,7 +123,7 @@ def read_data(data_path, tokenizer_root='bert-base-uncased', max_length=128, mod
         x, h = count[0].tolist(), count[2].tolist()
         print(f'Mean of len: {text_len[int(text_len.size * 0.5)]}')
         print(f'Most of len: {count[0][count[2].argmax()]}')
-        print(f'Quot of len: {text_len[int(text_len.size * 0.95)]}')
+        print(f'95% of len: {text_len[int(text_len.size * 0.95)]}')
         
         plt.bar(x, h)
         plt.xlabel('text len')
