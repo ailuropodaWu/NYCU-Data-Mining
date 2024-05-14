@@ -95,14 +95,13 @@ def clean_text(text: str):
     return text
 
 
-def read_data(data_path, tokenizer_root='bert-base-uncased', max_length=128, mode='train', analyze=False, type="title_text"):
+def read_data(data_path, tokenizer_root='bert-base-uncased', masked_ratio=0.5, max_length=128, mode='train', analyze=False, type="title_text"):
     assert type in ['title', 'text', 'title_text']
     print(f"Read data with type {type} mode {mode}")
     df = pd.read_json(data_path)
     tokenizer = BertTokenizer.from_pretrained(tokenizer_root, do_lower_case=True)
     text = []
     label = []
-    masked_ratio = 0.5
     for i, row in tqdm(df.iterrows()):
         t = ""
         if "title" in type:
@@ -112,7 +111,7 @@ def read_data(data_path, tokenizer_root='bert-base-uncased', max_length=128, mod
         t = clean_text(t)
         if mode == "train" and random.random() < masked_ratio:
             t = add_mask(t)
-        # t = '[CLS] ' + t
+        t = '[CLS] ' + t
         text.append(t)
         label.append(row['rating'] - 1 if mode != 'test' else None)
             
@@ -173,6 +172,7 @@ class TrainingAgent():
         parser.add_argument("--lr", nargs='?', type=float, default=2e-5)
         parser.add_argument("--weight_decay", nargs='?', type=float, default=1e-2)
         parser.add_argument("--dropout_ratio", nargs='?', type=float, default=0.4)
+        parser.add_argument("--masked_ratio", nargs='?', type=float, default=0.5)
         parser.add_argument("--max_length", nargs='?', type=int, default=256)
         parser.add_argument("--model_root", nargs='?', type=str, default='bert-base-uncased')
         parser.add_argument("--model_save", nargs='?', type=str, default='temp')
@@ -187,6 +187,7 @@ class TrainingAgent():
         self.lr = args.lr
         self.weight_decay = args.weight_decay
         self.dropout_ratio = args.dropout_ratio
+        self.masked_ratio = args.masked_ratio
         self.max_length = args.max_length
         self.model_root = args.model_root
         self.model_save = args.model_save
@@ -201,9 +202,9 @@ class TrainingAgent():
         os.makedirs(self.log_root, exist_ok=True)
         
         self.model = BERTClassifier(self.model_root, 5, self.dropout_ratio, args.use_classification, args.not_use_pretrained).to(self.device)
-        train_data = read_data(train_data_path, self.model_root, self.max_length, mode="train", type=self.text_type)
-        val_data = read_data(val_data_path, self.model_root, self.max_length, mode="val", type=self.text_type)
-        test_data = read_data(test_data_path, self.model_root, self.max_length, mode="test", type=self.text_type)
+        train_data = read_data(train_data_path, self.model_root, self.masked_ratio, self.max_length, mode="train", type=self.text_type)
+        val_data = read_data(val_data_path, self.model_root, None, self.max_length, mode="val", type=self.text_type)
+        test_data = read_data(test_data_path, self.model_root, None, self.max_length, mode="test", type=self.text_type)
         self.train_dataloader = DataLoader(train_data, batch_size=self.batch_size, shuffle=True)
         self.val_dataloader = DataLoader(val_data, batch_size=1)
         self.test_dataloader = DataLoader(test_data, batch_size=1)
