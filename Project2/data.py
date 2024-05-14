@@ -57,7 +57,7 @@ def add_mask(text: str):
     return " ".join(text)
 
 def clean_text(text: str):
-    stopword_drop_ratio = 0.5
+    stopword_drop_ratio = 0
     nltk_stopwords = nltk.corpus.stopwords.words('english')
     words = nltk.corpus.words.words()
     lemmatizer = nltk.stem.WordNetLemmatizer()
@@ -84,7 +84,7 @@ def clean_text(text: str):
     processed_text = []
     
     for t in text:
-        if (fdist[t] > fdist.N() * 0.05 or t in nltk_stopwords) and random.random() < stopword_drop_ratio:
+        if (fdist[t] > fdist.N() or t in nltk_stopwords) and random.random() < stopword_drop_ratio:
             continue
         t = lemmatizer.lemmatize(t)
         processed_text.append(t)
@@ -110,10 +110,10 @@ def read_data(data_path, tokenizer_root='bert-base-uncased', max_length=128, mod
             t += row['title'] + ' '
         if "comment" in type:
             t += row['text'] + ' '
-            
-        if mode != 'train' or \
-            (row['verified_purchase'] or random.random() > verified_drop_ratio) or \
-            (row['helpful_vote'] > 0 or random.random() > helpful_drop_ratio):
+        if True:
+        # if mode != 'train':
+            # (row['helpful_vote'] > 0 or random.random() > helpful_drop_ratio):
+            # (row['verified_purchase'] or random.random() > verified_drop_ratio) or \
             t = clean_text(t)
             if mode == "train" and random.random() < masked_ratio:
                 t = add_mask(t)
@@ -138,7 +138,9 @@ def read_data(data_path, tokenizer_root='bert-base-uncased', max_length=128, mod
         print(f'Quot of len: {text_len[int(text_len.size * 0.95)]}')
         
         plt.bar(x, h)
-        plt.savefig('analyze/text_len.png')
+        plt.xlabel('text len')
+        plt.ylabel('count')
+        plt.savefig(f'analyze/text_len.png')
         
     return TextData(text, label if mode != "test" else None, tokenizer, max_length, mode)
     

@@ -24,7 +24,7 @@ class TrainingAgent():
         parser.add_argument("--lr", nargs='?', type=float, default=2e-5)
         parser.add_argument("--weight_decay", nargs='?', type=float, default=1e-2)
         parser.add_argument("--dropout_ratio", nargs='?', type=float, default=0.2)
-        parser.add_argument("--max_length", nargs='?', type=int, default=128)
+        parser.add_argument("--max_length", nargs='?', type=int, default=256)
         parser.add_argument("--model_root", nargs='?', type=str, default='bert-base-uncased')
         parser.add_argument("--model_save", nargs='?', type=str, default='temp')
         parser.add_argument('--text_type', nargs='?', type=str, default='title_comment', help="[title_comment, title, comment]")
